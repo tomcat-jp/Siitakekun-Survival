@@ -1,11 +1,10 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// スマホ画面いっぱいにキャンバスをフィット
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// 画像読み込み
+// 画像
 const imgMove = new Image();
 imgMove.src = "mushroom_back.png";
 
@@ -14,64 +13,97 @@ imgIdle.src = "mushroom_face.png";
 
 // キャラ情報
 let x = canvas.width / 2;
-let y = canvas.height - 200;
+let y = canvas.height / 2;
 let speed = 4;
 let moving = false;
-let direction = 1; // 1=右, -1=左
+let directionX = 0; // -1=左, 1=右
+let directionY = 0; // -1=上, 1=下
 
 // アニメーション用
 let frameCounter = 0;
-let flipToggle = 1; // 1=通常, -1=反転
+let flipToggle = 1;
 
-// 入力（スマホ＋PC対応）
+// 入力管理（フリック用）
+let touchStartX = 0;
+let touchStartY = 0;
+
+// OSの長押しメニューを無効化
+document.addEventListener("contextmenu", (e) => e.preventDefault());
+document.addEventListener("selectstart", (e) => e.preventDefault());
+
+// PC操作（矢印キー）
 let keys = {};
-
 document.addEventListener("keydown", (e) => {
   keys[e.key] = true;
 });
-
 document.addEventListener("keyup", (e) => {
   keys[e.key] = false;
 });
 
+// スマホ：フリック検出
 document.addEventListener("touchstart", (e) => {
-  if (e.touches[0].clientX < window.innerWidth / 2) {
-    keys["ArrowLeft"] = true;
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+});
+
+document.addEventListener("touchmove", (e) => {
+  const dx = e.touches[0].clientX - touchStartX;
+  const dy = e.touches[0].clientY - touchStartY;
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    // 横方向フリック
+    directionX = dx > 0 ? 1 : -1;
+    directionY = 0;
   } else {
-    keys["ArrowRight"] = true;
+    // 縦方向フリック
+    directionY = dy > 0 ? 1 : -1;
+    directionX = 0;
   }
+  moving = true;
 });
 
 document.addEventListener("touchend", () => {
-  keys["ArrowLeft"] = false;
-  keys["ArrowRight"] = false;
+  directionX = 0;
+  directionY = 0;
+  moving = false;
 });
 
 // ゲームループ
 function gameLoop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  moving = false;
-
-  // 左右移動処理
+  // PCキー操作
   if (keys["ArrowLeft"]) {
     x -= speed;
-    direction = -1;
     moving = true;
   }
   if (keys["ArrowRight"]) {
     x += speed;
-    direction = 1;
+    moving = true;
+  }
+  if (keys["ArrowUp"]) {
+    y -= speed;
+    moving = true;
+  }
+  if (keys["ArrowDown"]) {
+    y += speed;
     moving = true;
   }
 
-  // 画面外に出ないよう制御
-  x = Math.max(0, Math.min(canvas.width, x));
+  // スマホ操作
+  if (moving) {
+    x += directionX * speed;
+    y += directionY * speed;
+  }
 
-  // 移動中ならフレームカウンタを進める
+  // 画面外に出ないよう制御
+  x = Math.max(50, Math.min(canvas.width - 50, x));
+  y = Math.max(50, Math.min(canvas.height - 50, y));
+
+  // アニメーション管理
   if (moving) {
     frameCounter++;
-    if (frameCounter % 15 === 0) {  // 15フレームごとに切り替え
+    if (frameCounter % 15 === 0) {
       flipToggle *= -1;
     }
   } else {
@@ -84,11 +116,9 @@ function gameLoop() {
   ctx.translate(x, y);
 
   if (moving) {
-    // 左右移動中：flipToggle で交互に反転
     ctx.scale(flipToggle, 1);
     ctx.drawImage(imgMove, -50, -50, 100, 100);
   } else {
-    // 停止中：顔つき
     ctx.drawImage(imgIdle, -50, -50, 100, 100);
   }
 
