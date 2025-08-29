@@ -1,0 +1,12 @@
+body {
+  margin: 0;
+  overflow: hidden;
+  background: url("background.png") no-repeat center center;
+  background-size: cover;
+}
+
+#gameCanvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
