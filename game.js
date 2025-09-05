@@ -11,13 +11,23 @@ imgMove.src = "mushroom_back.png";
 const imgIdle = new Image();
 imgIdle.src = "mushroom_face.png";
 
+// 敵キャラ画像
+const enemyImages = {
+  red: new Image(),
+  yellow: new Image(),
+  green: new Image(),
+};
+enemyImages.red.src = "enemy_red.png";
+enemyImages.yellow.src = "enemy_yellow.png";
+enemyImages.green.src = "enemy_green.png";
+
 // キャラ情報
 let x = canvas.width / 2;
 let y = canvas.height / 2;
 let speed = 4;
 let moving = false;
-let directionX = 0; // -1=左, 1=右
-let directionY = 0; // -1=上, 1=下
+let directionX = 0;
+let directionY = 0;
 
 // アニメーション用
 let frameCounter = 0;
@@ -51,11 +61,9 @@ document.addEventListener("touchmove", (e) => {
   const dy = e.touches[0].clientY - touchStartY;
 
   if (Math.abs(dx) > Math.abs(dy)) {
-    // 横方向フリック
     directionX = dx > 0 ? 1 : -1;
     directionY = 0;
   } else {
-    // 縦方向フリック
     directionY = dy > 0 ? 1 : -1;
     directionX = 0;
   }
@@ -67,6 +75,38 @@ document.addEventListener("touchend", () => {
   directionY = 0;
   moving = false;
 });
+
+// 敵キャラクラス
+class Enemy {
+  constructor(img) {
+    this.img = img;
+    this.x = Math.random() * canvas.width;
+    this.y = Math.random() * canvas.height;
+    this.size = 80;
+    this.speedX = (Math.random() - 0.5) * 4; // -2～2
+    this.speedY = (Math.random() - 0.5) * 4;
+  }
+
+  update() {
+    this.x += this.speedX;
+    this.y += this.speedY;
+
+    // 画面端で反射
+    if (this.x < 40 || this.x > canvas.width - 40) this.speedX *= -1;
+    if (this.y < 40 || this.y > canvas.height - 40) this.speedY *= -1;
+  }
+
+  draw() {
+    ctx.drawImage(this.img, this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+  }
+}
+
+// 敵を3体生成（赤・黄・緑）
+const enemies = [
+  new Enemy(enemyImages.red),
+  new Enemy(enemyImages.yellow),
+  new Enemy(enemyImages.green),
+];
 
 // ゲームループ
 function gameLoop() {
@@ -111,7 +151,7 @@ function gameLoop() {
     flipToggle = 1;
   }
 
-  // 描画
+  // プレイヤー描画
   ctx.save();
   ctx.translate(x, y);
 
@@ -123,6 +163,12 @@ function gameLoop() {
   }
 
   ctx.restore();
+
+  // 敵描画＆移動
+  enemies.forEach((enemy) => {
+    enemy.update();
+    enemy.draw();
+  });
 
   requestAnimationFrame(gameLoop);
 }
