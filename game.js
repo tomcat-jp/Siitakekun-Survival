@@ -70,12 +70,12 @@ document.addEventListener("touchend", () => {
 
 // ====== 敵クラス ======
 class Enemy {
-  constructor(type, x, y) {
+  constructor(type, x, y, size = 80) {
     this.type = type;
     this.img = enemyImages[type];
     this.x = x;
     this.y = y;
-    this.size = 80 * 0.7;
+    this.size = size;
     this.speedY = 2;
 
     this.frameCounter = 0;
@@ -134,17 +134,16 @@ setInterval(() => {
 }, 500);
 
 // ===== 敵生成 =====
-let enemySpawnTimer = 0;
 function spawnEnemies() {
   if (gameOver) return;
 
   const startY = -50;
-  const enemySize = 80; // サイズ固定
+  const enemySize = 80; // 敵サイズは固定
   const totalWidth = enemySize * 4;
-  const startX = (canvas.width - totalWidth) / 2; // 横中央に配置
+  const startX = (canvas.width - totalWidth) / 2; // 中央揃え
 
   for (let i = 0; i < 4; i++) {
-    let ex = startX + i * enemySize + enemySize / 2; // 各敵の中心座標
+    let ex = startX + i * enemySize + enemySize / 2;
     let col;
     const r = Math.random();
     if (r < 0.7) col = "red";       // 70%
@@ -154,29 +153,34 @@ function spawnEnemies() {
   }
 }
 
+let lastSpawn = 0;
+function updateSpawns() {
+  let now = Date.now();
+  let interval = 3000; // 基本 3秒
+  if (score >= 1000) interval = 1000;
+  else if (score >= 500) interval = 2000;
+
+  if (now - lastSpawn > interval) {
+    spawnEnemies();
+    lastSpawn = now;
+  }
+}
+
 // ====== ゲームループ ======
-function gameLoop(timestamp) {
+function gameLoop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   if (!gameOver) {
-    // === 敵の出現間隔をスコアに応じて調整 ===
-    let interval = 3000; // 基本3秒
-    if (score >= 1000) interval = 1000;
-    else if (score >= 500) interval = 2000;
+    updateSpawns();
 
-    if (!enemySpawnTimer) enemySpawnTimer = timestamp;
-    if (timestamp - enemySpawnTimer > interval) {
-      spawnEnemies();
-      enemySpawnTimer = timestamp;
-    }
-
-    // === プレイヤー操作 ===
+    // PC操作
     moving = false;
     if (keys["ArrowLeft"]) { x -= speed; moving = true; }
     if (keys["ArrowRight"]) { x += speed; moving = true; }
     if (keys["ArrowUp"]) { y -= speed; moving = true; }
     if (keys["ArrowDown"]) { y += speed; moving = true; }
 
+    // スマホ操作
     if (directionX !== 0 || directionY !== 0) {
       x += directionX * speed;
       y += directionY * speed;
@@ -187,7 +191,7 @@ function gameLoop(timestamp) {
     x = Math.max(50, Math.min(canvas.width - 50, x));
     y = Math.max(50, Math.min(canvas.height - 50, y));
 
-    // アニメーション
+    // プレイヤーアニメーション
     if (moving) {
       frameCounter++;
       if (frameCounter % 15 === 0) flipToggle *= -1;
@@ -237,6 +241,7 @@ function gameLoop(timestamp) {
           bullets.splice(bi, 1);
           enemy.hp -= 1;
           if (enemy.hp <= 0) {
+            // 倒した → スコア加算
             let now = Date.now();
             if (now - lastKillTime <= 1000) {
               combo++;
@@ -252,7 +257,7 @@ function gameLoop(timestamp) {
       });
     });
 
-    // スコア表示
+    // スコア表示（左上）
     ctx.fillStyle = "white";
     ctx.font = "20px sans-serif";
     ctx.textAlign = "left";
@@ -260,7 +265,7 @@ function gameLoop(timestamp) {
     ctx.fillText("COMBO: " + combo, 20, 60);
 
   } else {
-    // === ゲームオーバー画面 ===
+    // ゲームオーバー画面
     ctx.fillStyle = "rgba(0,0,0,0.6)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "red";
