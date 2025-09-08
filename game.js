@@ -4,10 +4,9 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// 画像
+// プレイヤー画像
 const imgMove = new Image();
 imgMove.src = "mushroom_back.png";
-
 const imgIdle = new Image();
 imgIdle.src = "mushroom_face.png";
 
@@ -21,15 +20,15 @@ enemyImages.red.src = "enemy_red.png";
 enemyImages.yellow.src = "enemy_yellow.png";
 enemyImages.green.src = "enemy_green.png";
 
-// キャラ情報
+// ===== プレイヤー =====
 let x = canvas.width / 2;
-let y = canvas.height / 2;
+let y = canvas.height - 100;
 let speed = 4;
 let moving = false;
 let directionX = 0;
 let directionY = 0;
 
-// アニメーション用
+// アニメーション
 let frameCounter = 0;
 let flipToggle = 1;
 
@@ -37,29 +36,23 @@ let flipToggle = 1;
 let touchStartX = 0;
 let touchStartY = 0;
 
-// OSの長押しメニューを無効化
+// 長押し無効化
 document.addEventListener("contextmenu", (e) => e.preventDefault());
 document.addEventListener("selectstart", (e) => e.preventDefault());
 
-// PC操作（矢印キー）
+// PC操作
 let keys = {};
-document.addEventListener("keydown", (e) => {
-  keys[e.key] = true;
-});
-document.addEventListener("keyup", (e) => {
-  keys[e.key] = false;
-});
+document.addEventListener("keydown", (e) => { keys[e.key] = true; });
+document.addEventListener("keyup", (e) => { keys[e.key] = false; });
 
-// スマホ：フリック検出
+// スマホ：フリック
 document.addEventListener("touchstart", (e) => {
   touchStartX = e.touches[0].clientX;
   touchStartY = e.touches[0].clientY;
 });
-
 document.addEventListener("touchmove", (e) => {
   const dx = e.touches[0].clientX - touchStartX;
   const dy = e.touches[0].clientY - touchStartY;
-
   if (Math.abs(dx) > Math.abs(dy)) {
     directionX = dx > 0 ? 1 : -1;
     directionY = 0;
@@ -69,106 +62,216 @@ document.addEventListener("touchmove", (e) => {
   }
   moving = true;
 });
-
 document.addEventListener("touchend", () => {
   directionX = 0;
   directionY = 0;
   moving = false;
 });
 
-// 敵キャラクラス
+// ====== 敵クラス ======
 class Enemy {
-  constructor(img) {
-    this.img = img;
-    this.x = Math.random() * canvas.width;
-    this.y = Math.random() * canvas.height;
-    this.size = 80;
-    this.speedX = (Math.random() - 0.5) * 4; // -2～2
-    this.speedY = (Math.random() - 0.5) * 4;
+  constructor(type, x, y) {
+    this.type = type;
+    this.img = enemyImages[type];
+    this.x = x;
+    this.y = y;
+    this.size = 80 * 0.7;
+    this.speedY = 2;
+
+    this.frameCounter = 0;
+    this.flipToggle = 1;
+
+    // HPと得点
+    if (type === "red") { this.hp = 1; this.score = 10; }
+    if (type === "yellow") { this.hp = 2; this.score = 20; }
+    if (type === "green") { this.hp = 3; this.score = 30; }
   }
 
   update() {
-    this.x += this.speedX;
     this.y += this.speedY;
-
-    // 画面端で反射
-    if (this.x < 40 || this.x > canvas.width - 40) this.speedX *= -1;
-    if (this.y < 40 || this.y > canvas.height - 40) this.speedY *= -1;
+    this.frameCounter++;
+    if (this.frameCounter % 20 === 0) {
+      this.flipToggle *= -1;
+    }
   }
 
   draw() {
-    ctx.drawImage(this.img, this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.scale(this.flipToggle, 1);
+    ctx.drawImage(this.img, -this.size / 2, -this.size / 2, this.size, this.size);
+    ctx.restore();
   }
 }
 
-// 敵を3体生成（赤・黄・緑）
-const enemies = [
-  new Enemy(enemyImages.red),
-  new Enemy(enemyImages.yellow),
-  new Enemy(enemyImages.green),
-];
+// ====== 弾クラス ======
+class Bullet {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.size = 10;
+    this.speedY = -6;
+  }
+  update() { this.y += this.speedY; }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = "cyan";
+    ctx.fill();
+  }
+}
 
-// ゲームループ
-function gameLoop() {
+let bullets = [];
+let enemies = [];
+let gameOver = false;
+let score = 0;
+let combo = 0;
+let lastKillTime = 0;
+
+// 弾を自動発射
+setInterval(() => {
+  if (!gameOver) bullets.push(new Bullet(x, y - 50));
+}, 500);
+
+// ===== 敵生成 =====
+let enemySpawnTimer = 0;
+function spawnEnemies() {
+  if (gameOver) return;
+
+  const startY = -50;
+  const enemySize = 80; // サイズ固定
+  const totalWidth = enemySize * 4;
+  const startX = (canvas.width - totalWidth) / 2; // 横中央に配置
+
+  for (let i = 0; i < 4; i++) {
+    let ex = startX + i * enemySize + enemySize / 2; // 各敵の中心座標
+    let col;
+    const r = Math.random();
+    if (r < 0.7) col = "red";       // 70%
+    else if (r < 0.9) col = "yellow"; // 20%
+    else col = "green";              // 10%
+    enemies.push(new Enemy(col, ex, startY, enemySize));
+  }
+}
+
+// ====== ゲームループ ======
+function gameLoop(timestamp) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // PCキー操作
-  if (keys["ArrowLeft"]) {
-    x -= speed;
-    moving = true;
-  }
-  if (keys["ArrowRight"]) {
-    x += speed;
-    moving = true;
-  }
-  if (keys["ArrowUp"]) {
-    y -= speed;
-    moving = true;
-  }
-  if (keys["ArrowDown"]) {
-    y += speed;
-    moving = true;
-  }
+  if (!gameOver) {
+    // === 敵の出現間隔をスコアに応じて調整 ===
+    let interval = 3000; // 基本3秒
+    if (score >= 1000) interval = 1000;
+    else if (score >= 500) interval = 2000;
 
-  // スマホ操作
-  if (moving) {
-    x += directionX * speed;
-    y += directionY * speed;
-  }
-
-  // 画面外に出ないよう制御
-  x = Math.max(50, Math.min(canvas.width - 50, x));
-  y = Math.max(50, Math.min(canvas.height - 50, y));
-
-  // アニメーション管理
-  if (moving) {
-    frameCounter++;
-    if (frameCounter % 15 === 0) {
-      flipToggle *= -1;
+    if (!enemySpawnTimer) enemySpawnTimer = timestamp;
+    if (timestamp - enemySpawnTimer > interval) {
+      spawnEnemies();
+      enemySpawnTimer = timestamp;
     }
+
+    // === プレイヤー操作 ===
+    moving = false;
+    if (keys["ArrowLeft"]) { x -= speed; moving = true; }
+    if (keys["ArrowRight"]) { x += speed; moving = true; }
+    if (keys["ArrowUp"]) { y -= speed; moving = true; }
+    if (keys["ArrowDown"]) { y += speed; moving = true; }
+
+    if (directionX !== 0 || directionY !== 0) {
+      x += directionX * speed;
+      y += directionY * speed;
+      moving = true;
+    }
+
+    // 画面外制限
+    x = Math.max(50, Math.min(canvas.width - 50, x));
+    y = Math.max(50, Math.min(canvas.height - 50, y));
+
+    // アニメーション
+    if (moving) {
+      frameCounter++;
+      if (frameCounter % 15 === 0) flipToggle *= -1;
+    } else {
+      frameCounter = 0;
+      flipToggle = 1;
+    }
+
+    // プレイヤー描画
+    ctx.save();
+    ctx.translate(x, y);
+    if (moving) {
+      ctx.scale(flipToggle, 1);
+      ctx.drawImage(imgMove, -50, -50, 100, 100);
+    } else {
+      ctx.drawImage(imgIdle, -50, -50, 100, 100);
+    }
+    ctx.restore();
+
+    // 弾
+    bullets.forEach((b, i) => {
+      b.update();
+      b.draw();
+      if (b.y < 0) bullets.splice(i, 1);
+    });
+
+    // 敵
+    enemies.forEach((enemy, ei) => {
+      enemy.update();
+      enemy.draw();
+
+      // 下まで行ったら消滅
+      if (enemy.y > canvas.height + 50) enemies.splice(ei, 1);
+
+      // プレイヤー衝突
+      let dx = x - enemy.x;
+      let dy = y - enemy.y;
+      if (Math.sqrt(dx*dx + dy*dy) < 60) {
+        gameOver = true;
+      }
+
+      // 弾衝突
+      bullets.forEach((b, bi) => {
+        let dx2 = b.x - enemy.x;
+        let dy2 = b.y - enemy.y;
+        if (Math.sqrt(dx2*dx2 + dy2*dy2) < 40) {
+          bullets.splice(bi, 1);
+          enemy.hp -= 1;
+          if (enemy.hp <= 0) {
+            let now = Date.now();
+            if (now - lastKillTime <= 1000) {
+              combo++;
+              score += enemy.score + combo * 10;
+            } else {
+              combo = 0;
+              score += enemy.score;
+            }
+            lastKillTime = now;
+            enemies.splice(ei, 1);
+          }
+        }
+      });
+    });
+
+    // スコア表示
+    ctx.fillStyle = "white";
+    ctx.font = "20px sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText("SCORE: " + score, 20, 30);
+    ctx.fillText("COMBO: " + combo, 20, 60);
+
   } else {
-    frameCounter = 0;
-    flipToggle = 1;
+    // === ゲームオーバー画面 ===
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "red";
+    ctx.font = "bold 60px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2);
+    ctx.fillStyle = "white";
+    ctx.font = "30px sans-serif";
+    ctx.fillText("SCORE: " + score, canvas.width / 2, canvas.height / 2 + 60);
+    ctx.fillText("COMBO: " + combo, canvas.width / 2, canvas.height / 2 + 100);
   }
-
-  // プレイヤー描画
-  ctx.save();
-  ctx.translate(x, y);
-
-  if (moving) {
-    ctx.scale(flipToggle, 1);
-    ctx.drawImage(imgMove, -50, -50, 100, 100);
-  } else {
-    ctx.drawImage(imgIdle, -50, -50, 100, 100);
-  }
-
-  ctx.restore();
-
-  // 敵描画＆移動
-  enemies.forEach((enemy) => {
-    enemy.update();
-    enemy.draw();
-  });
 
   requestAnimationFrame(gameLoop);
 }
