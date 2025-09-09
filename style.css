@@ -1,14 +1,32 @@
 body {
   margin: 0;
   overflow: hidden;
-  background: url("background.png") no-repeat center center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: url("background.png") no-repeat center center fixed;
   background-size: cover;
 }
 
-#gameCanvas {
+canvas {
   display: block;
-  width: 100vw;
-  height: 100vh;
+  background: transparent;
+}
+
+#retryBtn {
+  display: none;
+  position: absolute;
+  top: 60%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 12px 24px;
+  font-size: 18px;
+  border: none;
+  border-radius: 6px;
+  background: #ff5555;
+  color: white;
+  cursor: pointer;
+  z-index: 15;
 }
 
 #credit {
@@ -55,4 +73,3 @@ body {
   width: 20px;
   height: 20px;
 }
-
