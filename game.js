@@ -1,16 +1,30 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
+const retryBtn = document.getElementById("retryBtn");
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+let gameOver = false;
+let startScreen = true;
+let score = 0;
+let combo = 0;
+let enemies = [];
+let bullets = [];
+let lastSpawnTime = 0;
+let lastKillTime = 0;
 
-// プレイヤー画像
-const imgMove = new Image();
-imgMove.src = "mushroom_back.png";
-const imgIdle = new Image();
-imgIdle.src = "mushroom_face.png";
+// プレイヤー
+const player = {
+  x: canvas.width / 2,
+  y: canvas.height - 80,
+  size: 60,
+  speed: 5,
+  moving: false,
+  moveLeft: false,
+  moveRight: false,
+  moveUp: false,
+  moveDown: false
+};
 
-// 敵キャラ画像
+// 敵画像
 const enemyImages = {
   red: new Image(),
   yellow: new Image(),
@@ -20,149 +34,66 @@ enemyImages.red.src = "enemy_red.png";
 enemyImages.yellow.src = "enemy_yellow.png";
 enemyImages.green.src = "enemy_green.png";
 
-// ===== プレイヤー =====
-let x = canvas.width / 2;
-let y = canvas.height - 100;
-let speed = 4;
-let moving = false;
-let directionX = 0;
-let directionY = 0;
+// プレイヤー画像
+const playerImg = new Image();
+const playerStopImg = new Image();
+playerImg.src = "mushroom_back.png";   // 移動中
+playerStopImg.src = "mushroom_face.png"; // 停止中
 
-// アニメーション
-let frameCounter = 0;
-let flipToggle = 1;
-
-// 入力管理（フリック用）
-let touchStartX = 0;
-let touchStartY = 0;
-
-// 長押し無効化
-document.addEventListener("contextmenu", (e) => e.preventDefault());
-document.addEventListener("selectstart", (e) => e.preventDefault());
-
-// PC操作
-let keys = {};
-document.addEventListener("keydown", (e) => { 
-  keys[e.key] = true; 
-  if (gameState === "start" && e.key === " ") startGame();
-});
-document.addEventListener("keyup", (e) => { keys[e.key] = false; });
-
-// スマホ：フリック & ボタンタップ
-document.addEventListener("touchstart", (e) => {
-  if (gameState === "start") {
-    startGame();
-    return;
+// 弾クラス
+class Bullet {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.size = 8;
+    this.speedY = -6;
   }
-  if (gameState === "gameover") {
-    // 再チャレンジボタン判定
-    let tx = e.touches[0].clientX;
-    let ty = e.touches[0].clientY;
-    if (
-      tx > canvas.width / 2 - 100 &&
-      tx < canvas.width / 2 + 100 &&
-      ty > canvas.height / 2 + 20 &&
-      ty < canvas.height / 2 + 70
-    ) {
-      resetGame();
-    }
-    return;
+  update() { this.y += this.speedY; }
+  draw() {
+    ctx.fillStyle = "cyan";
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fill();
   }
-  touchStartX = e.touches[0].clientX;
-  touchStartY = e.touches[0].clientY;
-});
-document.addEventListener("touchmove", (e) => {
-  const dx = e.touches[0].clientX - touchStartX;
-  const dy = e.touches[0].clientY - touchStartY;
-  if (Math.abs(dx) > Math.abs(dy)) {
-    directionX = dx > 0 ? 1 : -1;
-    directionY = 0;
-  } else {
-    directionY = dy > 0 ? 1 : -1;
-    directionX = 0;
-  }
-  moving = true;
-});
-document.addEventListener("touchend", () => {
-  directionX = 0;
-  directionY = 0;
-  moving = false;
-});
+}
 
-// ====== 敵クラス ======
+// 敵クラス
 class Enemy {
-  constructor(type, x, y, size = 80) {
+  constructor(type, x, y, size) {
     this.type = type;
     this.img = enemyImages[type];
     this.x = x;
     this.y = y;
     this.size = size;
     this.speedY = 2;
-
     this.frameCounter = 0;
     this.flipToggle = 1;
 
-    // HPと得点
     if (type === "red") { this.hp = 1; this.score = 10; }
     if (type === "yellow") { this.hp = 2; this.score = 20; }
     if (type === "green") { this.hp = 3; this.score = 30; }
   }
-
   update() {
     this.y += this.speedY;
     this.frameCounter++;
-    if (this.frameCounter % 20 === 0) {
-      this.flipToggle *= -1;
-    }
+    if (this.frameCounter % 20 === 0) this.flipToggle *= -1;
   }
-
   draw() {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.scale(this.flipToggle, 1);
-    ctx.drawImage(this.img, -this.size / 2, -this.size / 2, this.size, this.size);
+    ctx.drawImage(this.img, -this.size/2, -this.size/2, this.size, this.size);
     ctx.restore();
   }
 }
 
-// ====== 弾クラス ======
-class Bullet {
-  constructor(x, y) {
-    this.x = x;
-    this.y = y;
-    this.size = 10;
-    this.speedY = -6;
-  }
-  update() { this.y += this.speedY; }
-  draw() {
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-    ctx.fillStyle = "cyan";
-    ctx.fill();
-  }
-}
-
-let bullets = [];
-let enemies = [];
-let score = 0;
-let combo = 0;
-let lastKillTime = 0;
-
-let lastSpawn = 0;
-let gameState = "start"; // "start" | "playing" | "gameover"
-
-// 弾を自動発射
-setInterval(() => {
-  if (gameState === "playing") bullets.push(new Bullet(x, y - 50));
-}, 500);
-
-// ===== 敵生成 =====
+// 敵生成（中央4体）
 function spawnEnemies() {
+  if (gameOver || startScreen) return;
   const startY = -50;
-  const enemySize = 80; 
+  const enemySize = 80;
   const totalWidth = enemySize * 4;
   const startX = (canvas.width - totalWidth) / 2;
-
   for (let i = 0; i < 4; i++) {
     let ex = startX + i * enemySize + enemySize / 2;
     let col;
@@ -174,177 +105,183 @@ function spawnEnemies() {
   }
 }
 
-function updateSpawns() {
-  let now = Date.now();
-  let interval = 3000;
-  if (score >= 1000) interval = 1000;
-  else if (score >= 500) interval = 2000;
-
-  if (now - lastSpawn > interval) {
-    spawnEnemies();
-    lastSpawn = now;
-  }
+// スタート画面
+function drawStartScreen() {
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const titleFontSize = canvas.width / 10;
+  ctx.fillStyle = "white";
+  ctx.font = `${titleFontSize}px Arial`;
+  ctx.textAlign = "center";
+  ctx.fillText("MUSHROOM GAME", canvas.width / 2, canvas.height / 2 - 50);
+  ctx.font = `${titleFontSize / 2}px Arial`;
+  ctx.fillText("タップしてスタート", canvas.width / 2, canvas.height / 2 + 50);
 }
 
-// ====== ゲーム制御 ======
-function startGame() {
-  gameState = "playing";
-  resetGame();
-}
-function resetGame() {
-  x = canvas.width / 2;
-  y = canvas.height - 100;
-  bullets = [];
-  enemies = [];
-  score = 0;
-  combo = 0;
-  lastKillTime = 0;
-  lastSpawn = 0;
-  gameState = "playing";
-}
-
-// ====== ゲームループ ======
-function gameLoop() {
+// ゲームループ
+function gameLoop(timestamp) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  if (gameState === "start") {
-    // スタート画面
+  if (startScreen) {
+    drawStartScreen();
+  } else if (gameOver) {
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "white";
-    ctx.font = "bold 50px sans-serif";
+    ctx.font = `${canvas.width / 15}px Arial`;
     ctx.textAlign = "center";
-    ctx.fillText("MY SHOOTING GAME", canvas.width / 2, canvas.height / 2 - 60);
-    ctx.font = "30px sans-serif";
-    ctx.fillText("TAP or PRESS SPACE to START", canvas.width / 2, canvas.height / 2);
-  }
-
-  else if (gameState === "playing") {
-    updateSpawns();
-
-    // PC操作
-    moving = false;
-    if (keys["ArrowLeft"]) { x -= speed; moving = true; }
-    if (keys["ArrowRight"]) { x += speed; moving = true; }
-    if (keys["ArrowUp"]) { y -= speed; moving = true; }
-    if (keys["ArrowDown"]) { y += speed; moving = true; }
-
-    // スマホ操作
-    if (directionX !== 0 || directionY !== 0) {
-      x += directionX * speed;
-      y += directionY * speed;
-      moving = true;
+    ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2);
+    retryBtn.style.display = "block";
+  } else {
+    // 敵出現間隔
+    let interval = 3000;
+    if (score >= 1000) interval = 1000;
+    else if (score >= 500) interval = 2000;
+    if (timestamp - lastSpawnTime > interval) {
+      spawnEnemies();
+      lastSpawnTime = timestamp;
     }
 
-    // 画面外制限
-    x = Math.max(50, Math.min(canvas.width - 50, x));
-    y = Math.max(50, Math.min(canvas.height - 50, y));
-
-    // プレイヤーアニメーション
-    if (moving) {
-      frameCounter++;
-      if (frameCounter % 15 === 0) flipToggle *= -1;
-    } else {
-      frameCounter = 0;
-      flipToggle = 1;
+    // 弾発射（自動連射）
+    if (timestamp % 300 < 20) {
+      bullets.push(new Bullet(player.x, player.y - player.size / 2));
     }
-
-    // プレイヤー描画
-    ctx.save();
-    ctx.translate(x, y);
-    if (moving) {
-      ctx.scale(flipToggle, 1);
-      ctx.drawImage(imgMove, -50, -50, 100, 100);
-    } else {
-      ctx.drawImage(imgIdle, -50, -50, 100, 100);
-    }
-    ctx.restore();
 
     // 弾
-    bullets.forEach((b, i) => {
-      b.update();
-      b.draw();
-      if (b.y < 0) bullets.splice(i, 1);
-    });
+    bullets.forEach(b => b.update());
+    bullets.forEach(b => b.draw());
+    bullets = bullets.filter(b => b.y > -b.size);
 
     // 敵
-    enemies.forEach((enemy, ei) => {
-      enemy.update();
-      enemy.draw();
+    enemies.forEach(e => e.update());
+    enemies.forEach(e => e.draw());
 
-      if (enemy.y > canvas.height + 50) enemies.splice(ei, 1);
-
-      let dx = x - enemy.x;
-      let dy = y - enemy.y;
-      if (Math.sqrt(dx*dx + dy*dy) < 60) {
-        gameState = "gameover";
-      }
-
-      bullets.forEach((b, bi) => {
-        let dx2 = b.x - enemy.x;
-        let dy2 = b.y - enemy.y;
-        if (Math.sqrt(dx2*dx2 + dy2*dy2) < 40) {
+    // 当たり判定（弾 vs 敵）
+    bullets.forEach((b, bi) => {
+      enemies.forEach((e, ei) => {
+        if (
+          b.x > e.x - e.size/2 &&
+          b.x < e.x + e.size/2 &&
+          b.y > e.y - e.size/2 &&
+          b.y < e.y + e.size/2
+        ) {
+          e.hp--;
           bullets.splice(bi, 1);
-          enemy.hp -= 1;
-          if (enemy.hp <= 0) {
-            let now = Date.now();
-            if (now - lastKillTime <= 1000) {
+          if (e.hp <= 0) {
+            enemies.splice(ei, 1);
+            let now = performance.now();
+            if (now - lastKillTime < 1000) {
               combo++;
-              score += enemy.score + combo * 10;
+              score += e.score + combo * 5;
             } else {
               combo = 0;
-              score += enemy.score;
+              score += e.score;
             }
             lastKillTime = now;
-            enemies.splice(ei, 1);
           }
         }
       });
     });
 
+    // 敵 vs プレイヤー
+    enemies.forEach(e => {
+      if (
+        Math.abs(e.x - player.x) < (e.size + player.size) / 2 &&
+        Math.abs(e.y - player.y) < (e.size + player.size) / 2
+      ) {
+        gameOver = true;
+      }
+    });
+
+    enemies = enemies.filter(e => e.y < canvas.height + 50);
+
+    // PC操作（上下追加）
+    if (player.moveLeft) player.x -= player.speed;
+    if (player.moveRight) player.x += player.speed;
+    if (player.moveUp) player.y -= player.speed;
+    if (player.moveDown) player.y += player.speed;
+
+    // 画面外に出ないよう制御
+    if (player.x < player.size/2) player.x = player.size/2;
+    if (player.x > canvas.width - player.size/2) player.x = canvas.width - player.size/2;
+    if (player.y < player.size/2) player.y = player.size/2;
+    if (player.y > canvas.height - player.size/2) player.y = canvas.height - player.size/2;
+
+    // プレイヤー描画
+    ctx.drawImage(
+      player.moving ? playerImg : playerStopImg,
+      player.x - player.size / 2,
+      player.y - player.size / 2,
+      player.size,
+      player.size
+    );
+
     // スコア表示
     ctx.fillStyle = "white";
-    ctx.font = "20px sans-serif";
+    ctx.font = "20px Arial";
     ctx.textAlign = "left";
-    ctx.fillText("SCORE: " + score, 20, 30);
-    ctx.fillText("COMBO: " + combo, 20, 60);
+    ctx.fillText("SCORE: " + score, 10, 30);
+    ctx.fillText("COMBO: " + combo, 10, 60);
   }
-
-  else if (gameState === "gameover") {
-    ctx.fillStyle = "rgba(0,0,0,0.6)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.fillStyle = "red";
-    ctx.font = "bold 40px sans-serif"; // 少し小さく
-    ctx.textAlign = "center";
-    ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 60);
-
-    ctx.fillStyle = "white";
-    ctx.font = "25px sans-serif";
-    ctx.fillText("SCORE: " + score, canvas.width / 2, canvas.height / 2 - 20);
-    ctx.fillText("COMBO: " + combo, canvas.width / 2, canvas.height / 2 + 20);
-
-    // 再チャレンジボタン
-    ctx.fillStyle = "#00ccff";
-    ctx.fillRect(canvas.width / 2 - 100, canvas.height / 2 + 40, 200, 50);
-    ctx.fillStyle = "white";
-    ctx.font = "20px sans-serif";
-    ctx.fillText("RETRY", canvas.width / 2, canvas.height / 2 + 75);
-
-    // PCクリックで再挑戦
-    canvas.onclick = (e) => {
-      if (gameState === "gameover") {
-        if (
-          e.offsetX > canvas.width / 2 - 100 &&
-          e.offsetX < canvas.width / 2 + 100 &&
-          e.offsetY > canvas.height / 2 + 40 &&
-          e.offsetY < canvas.height / 2 + 90
-        ) {
-          resetGame();
-        }
-      }
-    };
-  }
-
   requestAnimationFrame(gameLoop);
 }
+requestAnimationFrame(gameLoop);
 
-gameLoop();
+// スタート
+canvas.addEventListener("click", () => {
+  if (startScreen) {
+    startScreen = false;
+    lastSpawnTime = performance.now();
+  }
+});
+
+// PCキー入力（上下対応）
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowLeft" || e.key === "a") { player.moveLeft = true; player.moving = true; }
+  if (e.key === "ArrowRight" || e.key === "d") { player.moveRight = true; player.moving = true; }
+  if (e.key === "ArrowUp" || e.key === "w") { player.moveUp = true; player.moving = true; }
+  if (e.key === "ArrowDown" || e.key === "s") { player.moveDown = true; player.moving = true; }
+});
+document.addEventListener("keyup", (e) => {
+  if (e.key === "ArrowLeft" || e.key === "a") player.moveLeft = false;
+  if (e.key === "ArrowRight" || e.key === "d") player.moveRight = false;
+  if (e.key === "ArrowUp" || e.key === "w") player.moveUp = false;
+  if (e.key === "ArrowDown" || e.key === "s") player.moveDown = false;
+  player.moving = player.moveLeft || player.moveRight || player.moveUp || player.moveDown;
+});
+
+// スマホ操作（上下対応）
+let touchStartX = null, touchStartY = null;
+canvas.addEventListener("touchstart", (e) => {
+  const touch = e.touches[0];
+  const rect = canvas.getBoundingClientRect();
+  touchStartX = touch.clientX;
+  touchStartY = touch.clientY;
+  // タップ位置に移動
+  player.x = touch.clientX - rect.left;
+  player.y = touch.clientY - rect.top;
+  player.moving = true;
+});
+canvas.addEventListener("touchmove", (e) => {
+  const touch = e.touches[0];
+  let dx = touch.clientX - touchStartX;
+  let dy = touch.clientY - touchStartY;
+  player.x += dx * 0.1;
+  player.y += dy * 0.1;
+  touchStartX = touch.clientX;
+  touchStartY = touch.clientY;
+});
+canvas.addEventListener("touchend", () => {
+  player.moving = false;
+});
+
+// 再チャレンジ
+retryBtn.addEventListener("click", () => {
+  gameOver = false;
+  score = 0;
+  combo = 0;
+  enemies = [];
+  bullets = [];
+  lastSpawnTime = performance.now();
+  retryBtn.style.display = "none";
+});
