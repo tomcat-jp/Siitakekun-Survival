@@ -250,28 +250,44 @@ document.addEventListener("keyup", (e) => {
   player.moving = player.moveLeft || player.moveRight || player.moveUp || player.moveDown;
 });
 
-// スマホ操作（上下対応）
+// スマホ操作
 let touchStartX = null, touchStartY = null;
+
 canvas.addEventListener("touchstart", (e) => {
   const touch = e.touches[0];
-  const rect = canvas.getBoundingClientRect();
   touchStartX = touch.clientX;
   touchStartY = touch.clientY;
-  // タップ位置に移動
-  player.x = touch.clientX - rect.left;
-  player.y = touch.clientY - rect.top;
-  player.moving = true;
 });
+
 canvas.addEventListener("touchmove", (e) => {
   const touch = e.touches[0];
-  let dx = touch.clientX - touchStartX;
-  let dy = touch.clientY - touchStartY;
-  player.x += dx * 0.1;
-  player.y += dy * 0.1;
-  touchStartX = touch.clientX;
-  touchStartY = touch.clientY;
+  const dx = touch.clientX - touchStartX;
+  const dy = touch.clientY - touchStartY;
+
+  // 横移動優先（左右の移動量が大きい場合）
+  if (Math.abs(dx) > Math.abs(dy)) {
+    player.moveLeft = dx < 0;
+    player.moveRight = dx > 0;
+    player.moveUp = false;
+    player.moveDown = false;
+  } 
+  // 縦移動（上下の移動量が大きい場合）
+  else {
+    player.moveUp = dy < 0;
+    player.moveDown = dy > 0;
+    player.moveLeft = false;
+    player.moveRight = false;
+  }
+
+  player.moving = true;
 });
+
 canvas.addEventListener("touchend", () => {
+  // 指を離したら停止
+  player.moveLeft = false;
+  player.moveRight = false;
+  player.moveUp = false;
+  player.moveDown = false;
   player.moving = false;
 });
 
