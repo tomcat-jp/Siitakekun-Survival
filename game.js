@@ -15,7 +15,7 @@ let lastKillTime = 0;
 const player = {
   x: canvas.width / 2,
   y: canvas.height - 80,
-  size: 60,
+  size: 120,
   speed: 5,
   moving: false,
   moveLeft: false,
@@ -109,13 +109,71 @@ function spawnEnemies() {
 function drawStartScreen() {
   ctx.fillStyle = "rgba(0,0,0,0.5)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  const titleFontSize = canvas.width / 10;
+
+  const titleFontSize = Math.min(canvas.width / 12, 40); // スマホ対策
   ctx.fillStyle = "white";
-  ctx.font = `${titleFontSize}px Arial`;
   ctx.textAlign = "center";
-  ctx.fillText("MUSHROOM GAME", canvas.width / 2, canvas.height / 2 - 50);
-  ctx.font = `${titleFontSize / 2}px Arial`;
-  ctx.fillText("タップしてスタート", canvas.width / 2, canvas.height / 2 + 50);
+
+  ctx.font = `${titleFontSize}px Arial`;
+  ctx.fillText("しいたけくん", canvas.width / 2, canvas.height / 2 - titleFontSize*2);
+  ctx.fillText("×", canvas.width / 2, canvas.height / 2);
+  ctx.fillText("サバイブ", canvas.width / 2, canvas.height / 2 + titleFontSize*2);
+
+  ctx.font = `${titleFontSize/1.5}px Arial`;
+  ctx.fillText("タップしてスタート", canvas.width / 2, canvas.height / 2 + titleFontSize*4);
+}
+
+// GAME OVER画面
+function drawGameOver() {
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "white";
+  ctx.font = "40px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 60);
+
+  ctx.font = "24px Arial";
+  ctx.fillText(`SCORE: ${score}`, canvas.width / 2, canvas.height / 2 - 20);
+  ctx.fillText(`COMBO: ${combo}`, canvas.width / 2, canvas.height / 2 + 20);
+
+  retryBtn.style.display = "block";
+
+  // 共有ボタンを生成（なければ作る）
+  let shareBtn = document.getElementById("shareBtn");
+  if (!shareBtn) {
+    shareBtn = document.createElement("button");
+    shareBtn.id = "shareBtn";
+    shareBtn.textContent = "Xで共有";
+    shareBtn.style.position = "absolute";
+    shareBtn.style.top = "75%";
+    shareBtn.style.left = "50%";
+    shareBtn.style.transform = "translate(-50%, -50%)";
+    shareBtn.style.padding = "10px 20px";
+    shareBtn.style.fontSize = "18px";
+    shareBtn.style.background = "#1DA1F2";
+    shareBtn.style.color = "white";
+    shareBtn.style.border = "none";
+    shareBtn.style.borderRadius = "6px";
+    shareBtn.style.cursor = "pointer";
+    document.body.appendChild(shareBtn);
+  }
+
+  shareBtn.onclick = () => {
+    const text = `#しいたけくんゲーム\nスコア: ${score}\nhttps://example.com/`; // ← 配布URLに変更
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
+  };
+}
+
+// 衝突判定
+function isColliding(a, b) {
+  return (
+    a.x < b.x + b.size &&
+    a.x + a.size > b.x &&
+    a.y < b.y + b.size &&
+    a.y + a.size > b.y
+  );
 }
 
 // ゲームループ
@@ -125,13 +183,7 @@ function gameLoop(timestamp) {
   if (startScreen) {
     drawStartScreen();
   } else if (gameOver) {
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "white";
-    ctx.font = `${canvas.width / 15}px Arial`;
-    ctx.textAlign = "center";
-    ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2);
-    retryBtn.style.display = "block";
+    drawGameOver();
   } else {
     // 敵出現間隔
     let interval = 3000;
@@ -143,8 +195,8 @@ function gameLoop(timestamp) {
     }
 
     // 弾発射（自動連射）
-    if (timestamp % 300 < 20) {
-      bullets.push(new Bullet(player.x, player.y - player.size / 2));
+    if (timestamp % 600 < 20) {
+      bullets.push(new Bullet(player.x - player.size / 2, player.y - player.size / 2));
     }
 
     // 弾
@@ -156,7 +208,7 @@ function gameLoop(timestamp) {
     enemies.forEach(e => e.update());
     enemies.forEach(e => e.draw());
 
-    // 当たり判定（弾 vs 敵）
+    // 弾 vs 敵
     bullets.forEach((b, bi) => {
       enemies.forEach((e, ei) => {
         if (
@@ -195,7 +247,7 @@ function gameLoop(timestamp) {
 
     enemies = enemies.filter(e => e.y < canvas.height + 50);
 
-    // PC操作（上下追加）
+    // PC操作
     if (player.moveLeft) player.x -= player.speed;
     if (player.moveRight) player.x += player.speed;
     if (player.moveUp) player.y -= player.speed;
@@ -210,8 +262,8 @@ function gameLoop(timestamp) {
     // プレイヤー描画
     ctx.drawImage(
       player.moving ? playerImg : playerStopImg,
-      player.x - player.size / 2,
-      player.y - player.size / 2,
+      player.x - player.size ,
+      player.y - player.size ,
       player.size,
       player.size
     );
@@ -250,40 +302,32 @@ document.addEventListener("keyup", (e) => {
   player.moving = player.moveLeft || player.moveRight || player.moveUp || player.moveDown;
 });
 
-// スマホ操作
+// スマホ操作（スワイプ中は移動し続ける）
 let touchStartX = null, touchStartY = null;
-
 canvas.addEventListener("touchstart", (e) => {
   const touch = e.touches[0];
   touchStartX = touch.clientX;
   touchStartY = touch.clientY;
 });
-
 canvas.addEventListener("touchmove", (e) => {
   const touch = e.touches[0];
   const dx = touch.clientX - touchStartX;
   const dy = touch.clientY - touchStartY;
 
-  // 横移動優先（左右の移動量が大きい場合）
   if (Math.abs(dx) > Math.abs(dy)) {
     player.moveLeft = dx < 0;
     player.moveRight = dx > 0;
     player.moveUp = false;
     player.moveDown = false;
-  } 
-  // 縦移動（上下の移動量が大きい場合）
-  else {
+  } else {
     player.moveUp = dy < 0;
     player.moveDown = dy > 0;
     player.moveLeft = false;
     player.moveRight = false;
   }
-
   player.moving = true;
 });
-
 canvas.addEventListener("touchend", () => {
-  // 指を離したら停止
   player.moveLeft = false;
   player.moveRight = false;
   player.moveUp = false;
@@ -300,4 +344,7 @@ retryBtn.addEventListener("click", () => {
   bullets = [];
   lastSpawnTime = performance.now();
   retryBtn.style.display = "none";
+
+  const shareBtn = document.getElementById("shareBtn");
+  if (shareBtn) shareBtn.remove();
 });
