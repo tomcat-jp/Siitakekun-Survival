@@ -42,11 +42,32 @@ document.addEventListener("selectstart", (e) => e.preventDefault());
 
 // PC操作
 let keys = {};
-document.addEventListener("keydown", (e) => { keys[e.key] = true; });
+document.addEventListener("keydown", (e) => { 
+  keys[e.key] = true; 
+  if (gameState === "start" && e.key === " ") startGame();
+});
 document.addEventListener("keyup", (e) => { keys[e.key] = false; });
 
-// スマホ：フリック
+// スマホ：フリック & ボタンタップ
 document.addEventListener("touchstart", (e) => {
+  if (gameState === "start") {
+    startGame();
+    return;
+  }
+  if (gameState === "gameover") {
+    // 再チャレンジボタン判定
+    let tx = e.touches[0].clientX;
+    let ty = e.touches[0].clientY;
+    if (
+      tx > canvas.width / 2 - 100 &&
+      tx < canvas.width / 2 + 100 &&
+      ty > canvas.height / 2 + 20 &&
+      ty < canvas.height / 2 + 70
+    ) {
+      resetGame();
+    }
+    return;
+  }
   touchStartX = e.touches[0].clientX;
   touchStartY = e.touches[0].clientY;
 });
@@ -123,40 +144,39 @@ class Bullet {
 
 let bullets = [];
 let enemies = [];
-let gameOver = false;
 let score = 0;
 let combo = 0;
 let lastKillTime = 0;
 
+let lastSpawn = 0;
+let gameState = "start"; // "start" | "playing" | "gameover"
+
 // 弾を自動発射
 setInterval(() => {
-  if (!gameOver) bullets.push(new Bullet(x, y - 50));
+  if (gameState === "playing") bullets.push(new Bullet(x, y - 50));
 }, 500);
 
 // ===== 敵生成 =====
 function spawnEnemies() {
-  if (gameOver) return;
-
   const startY = -50;
-  const enemySize = 80; // 敵サイズは固定
+  const enemySize = 80; 
   const totalWidth = enemySize * 4;
-  const startX = (canvas.width - totalWidth) / 2; // 中央揃え
+  const startX = (canvas.width - totalWidth) / 2;
 
   for (let i = 0; i < 4; i++) {
     let ex = startX + i * enemySize + enemySize / 2;
     let col;
     const r = Math.random();
-    if (r < 0.7) col = "red";       // 70%
-    else if (r < 0.9) col = "yellow"; // 20%
-    else col = "green";              // 10%
+    if (r < 0.7) col = "red";
+    else if (r < 0.9) col = "yellow";
+    else col = "green";
     enemies.push(new Enemy(col, ex, startY, enemySize));
   }
 }
 
-let lastSpawn = 0;
 function updateSpawns() {
   let now = Date.now();
-  let interval = 3000; // 基本 3秒
+  let interval = 3000;
   if (score >= 1000) interval = 1000;
   else if (score >= 500) interval = 2000;
 
@@ -166,11 +186,38 @@ function updateSpawns() {
   }
 }
 
+// ====== ゲーム制御 ======
+function startGame() {
+  gameState = "playing";
+  resetGame();
+}
+function resetGame() {
+  x = canvas.width / 2;
+  y = canvas.height - 100;
+  bullets = [];
+  enemies = [];
+  score = 0;
+  combo = 0;
+  lastKillTime = 0;
+  lastSpawn = 0;
+  gameState = "playing";
+}
+
 // ====== ゲームループ ======
 function gameLoop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  if (!gameOver) {
+  if (gameState === "start") {
+    // スタート画面
+    ctx.fillStyle = "white";
+    ctx.font = "bold 50px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("MY SHOOTING GAME", canvas.width / 2, canvas.height / 2 - 60);
+    ctx.font = "30px sans-serif";
+    ctx.fillText("TAP or PRESS SPACE to START", canvas.width / 2, canvas.height / 2);
+  }
+
+  else if (gameState === "playing") {
     updateSpawns();
 
     // PC操作
@@ -223,17 +270,14 @@ function gameLoop() {
       enemy.update();
       enemy.draw();
 
-      // 下まで行ったら消滅
       if (enemy.y > canvas.height + 50) enemies.splice(ei, 1);
 
-      // プレイヤー衝突
       let dx = x - enemy.x;
       let dy = y - enemy.y;
       if (Math.sqrt(dx*dx + dy*dy) < 60) {
-        gameOver = true;
+        gameState = "gameover";
       }
 
-      // 弾衝突
       bullets.forEach((b, bi) => {
         let dx2 = b.x - enemy.x;
         let dy2 = b.y - enemy.y;
@@ -241,7 +285,6 @@ function gameLoop() {
           bullets.splice(bi, 1);
           enemy.hp -= 1;
           if (enemy.hp <= 0) {
-            // 倒した → スコア加算
             let now = Date.now();
             if (now - lastKillTime <= 1000) {
               combo++;
@@ -257,25 +300,48 @@ function gameLoop() {
       });
     });
 
-    // スコア表示（左上）
+    // スコア表示
     ctx.fillStyle = "white";
     ctx.font = "20px sans-serif";
     ctx.textAlign = "left";
     ctx.fillText("SCORE: " + score, 20, 30);
     ctx.fillText("COMBO: " + combo, 20, 60);
+  }
 
-  } else {
-    // ゲームオーバー画面
+  else if (gameState === "gameover") {
     ctx.fillStyle = "rgba(0,0,0,0.6)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
     ctx.fillStyle = "red";
-    ctx.font = "bold 60px sans-serif";
+    ctx.font = "bold 40px sans-serif"; // 少し小さく
     ctx.textAlign = "center";
-    ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2);
+    ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 60);
+
     ctx.fillStyle = "white";
-    ctx.font = "30px sans-serif";
-    ctx.fillText("SCORE: " + score, canvas.width / 2, canvas.height / 2 + 60);
-    ctx.fillText("COMBO: " + combo, canvas.width / 2, canvas.height / 2 + 100);
+    ctx.font = "25px sans-serif";
+    ctx.fillText("SCORE: " + score, canvas.width / 2, canvas.height / 2 - 20);
+    ctx.fillText("COMBO: " + combo, canvas.width / 2, canvas.height / 2 + 20);
+
+    // 再チャレンジボタン
+    ctx.fillStyle = "#00ccff";
+    ctx.fillRect(canvas.width / 2 - 100, canvas.height / 2 + 40, 200, 50);
+    ctx.fillStyle = "white";
+    ctx.font = "20px sans-serif";
+    ctx.fillText("RETRY", canvas.width / 2, canvas.height / 2 + 75);
+
+    // PCクリックで再挑戦
+    canvas.onclick = (e) => {
+      if (gameState === "gameover") {
+        if (
+          e.offsetX > canvas.width / 2 - 100 &&
+          e.offsetX < canvas.width / 2 + 100 &&
+          e.offsetY > canvas.height / 2 + 40 &&
+          e.offsetY < canvas.height / 2 + 90
+        ) {
+          resetGame();
+        }
+      }
+    };
   }
 
   requestAnimationFrame(gameLoop);

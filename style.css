@@ -10,3 +10,49 @@ body {
   width: 100vw;
   height: 100vh;
 }
+
+#credit {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  background: rgba(0,0,0,0.6);
+  color: white;
+  font-family: sans-serif;
+  padding: 5px 10px;
+  display: flex;
+  justify-content: center;
+  z-index: 10;
+}
+
+.credit-text {
+  text-align: center;
+  font-size: 14px;
+}
+
+.role {
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+
+.name-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.name {
+  font-size: 14px;
+}
+
+.ch-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+.yt-icon {
+  width: 20px;
+  height: 20px;
+}
+

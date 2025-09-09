@@ -2,12 +2,84 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>しいたけくんゲーム</title>
-  <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shooting Game</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    /* ===== クレジット帯 ===== */
+    #credit {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      background: rgba(0,0,0,0.6);
+      color: white;
+      font-family: sans-serif;
+      padding: 5px 10px;
+      display: flex;
+      justify-content: center;
+      z-index: 10;
+    }
+
+    .credit-text {
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .role {
+      font-weight: bold;
+      margin-bottom: 2px;
+    }
+
+    .name-line {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .name {
+      font-size: 14px;
+    }
+
+    .ch-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+    }
+
+    .yt-icon {
+      width: 20px;
+      height: 20px;
+    }
+  </style>
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
+
+  <!-- クレジット帯 -->
+  <div id="credit">
+    <div class="credit-text">
+      <div class="role">キャラクターデザイン</div>
+      <div class="name-line">
+        <span class="name">香椎きなこ</span>
+        <img src="https://yt3.googleusercontent.com/giojR-aDzzL-bDMOFdF0RIqXhIQtSByPMIjE-fhsH_i-JALcd91j1TbmbGRVYnahF1e6ZIjurw=s160-c-k-c0x00ffffff-no-rj"
+             alt="ch icon" class="ch-icon">
+        <a href="https://www.youtube.com/@Kinako_Kashii" target="_blank" title="YouTube チャンネルを開く">
+          <img src="yt_icon_rgb.png" alt="YouTube" class="yt-icon">
+        </a>
+      </div>
+    </div>
+  </div>
+
   <script src="game.js"></script>
 </body>
 </html>
