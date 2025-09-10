@@ -21,7 +21,9 @@ const player = {
   moveLeft: false,
   moveRight: false,
   moveUp: false,
-  moveDown: false
+  moveDown: false,
+  frameCounter: 0,
+  flipToggle: 1
 };
 
 // 敵画像
@@ -166,16 +168,6 @@ function drawGameOver() {
   };
 }
 
-// 衝突判定
-function isColliding(a, b) {
-  return (
-    a.x < b.x + b.size &&
-    a.x + a.size > b.x &&
-    a.y < b.y + b.size &&
-    a.y + a.size > b.y
-  );
-}
-
 // ゲームループ
 function gameLoop(timestamp) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -196,7 +188,7 @@ function gameLoop(timestamp) {
 
     // 弾発射（自動連射）
     if (timestamp % 600 < 20) {
-      bullets.push(new Bullet(player.x - player.size / 2, player.y - player.size / 2));
+      bullets.push(new Bullet(player.x, player.y - player.size * 0.4));
     }
 
     // 弾
@@ -235,12 +227,12 @@ function gameLoop(timestamp) {
       });
     });
 
-    // 敵 vs プレイヤー
+    // 敵 vs プレイヤー（円形判定）
     enemies.forEach(e => {
-      if (
-        Math.abs(e.x - player.x) < (e.size + player.size) / 2 &&
-        Math.abs(e.y - player.y) < (e.size + player.size) / 2
-      ) {
+      let dx = e.x - player.x;
+      let dy = e.y - player.y;
+      let distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance < (e.size / 2 + player.size / 2) * 0.7) {
         gameOver = true;
       }
     });
@@ -259,14 +251,29 @@ function gameLoop(timestamp) {
     if (player.y < player.size/2) player.y = player.size/2;
     if (player.y > canvas.height - player.size/2) player.y = canvas.height - player.size/2;
 
-    // プレイヤー描画
+    // プレイヤー移動アニメーション
+    if (player.moving) {
+      player.frameCounter++;
+      if (player.frameCounter % 20 === 0) {
+        player.flipToggle *= -1;
+      }
+    } else {
+      player.frameCounter = 0;
+      player.flipToggle = 1;
+    }
+
+    // プレイヤー描画（反転対応）
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.scale(player.flipToggle, 1);
     ctx.drawImage(
       player.moving ? playerImg : playerStopImg,
-      player.x - player.size ,
-      player.y - player.size ,
+      -player.size / 2,
+      -player.size / 2,
       player.size,
       player.size
     );
+    ctx.restore();
 
     // スコア表示
     ctx.fillStyle = "white";
