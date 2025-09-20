@@ -42,6 +42,10 @@ const playerStopImg = new Image();
 playerImg.src = "mushroom_back.png";   // 移動中
 playerStopImg.src = "mushroom_face.png"; // 停止中
 
+// タイトル画面画像
+const titleImg = new Image();
+titleImg.src = "2SnapShot.png"; // ← 同じフォルダに配置してください
+
 // 弾クラス
 class Bullet {
   constructor(x, y) {
@@ -112,17 +116,40 @@ function drawStartScreen() {
   ctx.fillStyle = "rgba(0,0,0,0.5)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const titleFontSize = Math.min(canvas.width / 12, 40); // スマホ対策
-  ctx.fillStyle = "white";
-  ctx.textAlign = "center";
+  // 縦横比を保持して中央に配置
+  let imgAspect = titleImg.width / titleImg.height;
+  let canvasAspect = canvas.width / canvas.height;
+  let drawWidth, drawHeight;
 
-  ctx.font = `${titleFontSize}px Arial`;
-  ctx.fillText("しいたけくん", canvas.width / 2, canvas.height / 2 - titleFontSize*2);
-  ctx.fillText("×", canvas.width / 2, canvas.height / 2);
-  ctx.fillText("サバイブ", canvas.width / 2, canvas.height / 2 + titleFontSize*2);
+  if (imgAspect > canvasAspect) {
+    // 画像の方が横長 → 横を合わせる
+    drawWidth = canvas.width;
+    drawHeight = canvas.width / imgAspect;
+  } else {
+    // 画像の方が縦長 → 縦を合わせる
+    drawHeight = canvas.height;
+    drawWidth = canvas.height * imgAspect;
+  }
 
-  ctx.font = `${titleFontSize/1.5}px Arial`;
-  ctx.fillText("タップしてスタート", canvas.width / 2, canvas.height / 2 + titleFontSize*4);
+  let offsetX = (canvas.width - drawWidth) / 2;
+  let offsetY = (canvas.height - drawHeight) / 2;
+
+  ctx.drawImage(titleImg, offsetX, offsetY, drawWidth, drawHeight);
+
+// スタート案内の文字だけ残す
+const titleFontSize = Math.min(canvas.width / 12, 40);
+ctx.textAlign = "center";
+ctx.font = `${titleFontSize/1.5}px Arial`;
+
+// 白い縁取り（6px）
+ctx.lineWidth = 6;
+ctx.strokeStyle = "white";
+ctx.strokeText("タップしてスタート", canvas.width / 2, canvas.height * 0.95);
+
+// 黒文字
+ctx.fillStyle = "black";
+ctx.fillText("タップしてスタート", canvas.width / 2, canvas.height * 0.95);
+
 }
 
 // GAME OVER画面
@@ -188,7 +215,7 @@ function gameLoop(timestamp) {
 
     // 弾発射（自動連射）
     if (timestamp % 600 < 20) {
-      bullets.push(new Bullet(player.x, player.y - player.size * 0.4));
+      bullets.push(new Bullet(player.x, player.y - player.size / 2)); // ← 発射位置修正済み
     }
 
     // 弾
