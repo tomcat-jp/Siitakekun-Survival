@@ -302,13 +302,17 @@ function gameLoop(timestamp) {
     );
     ctx.restore();
 
-  // スコア表示（スマホ対応・可変フォント）
-  let scoreFontSize = Math.min(canvas.width / 20, 20); // 最大20px、幅に応じて縮小
-  ctx.font = `${scoreFontSize}px Arial`;
-  ctx.fillStyle = "white";
-  ctx.textAlign = "left";
-  ctx.fillText("SCORE: " + score, 10, scoreFontSize + 10);
-  ctx.fillText("COMBO: " + combo, 10, scoreFontSize * 2 + 20);
+    // スコア表示（スマホ対応・可変フォント・右にオフセット）
+    let scoreFontSize = Math.min(canvas.width / 20, 20); // 最大20px、幅に応じて縮小
+    ctx.font = `${scoreFontSize}px Arial`;
+    ctx.fillStyle = "white";
+    ctx.textAlign = "left";
+
+    // 半角3文字分 ≒ フォントサイズ × 3
+    let offsetX = scoreFontSize * 3;
+
+    ctx.fillText("SCORE: " + score, 10 + offsetX, scoreFontSize + 10);
+    ctx.fillText("COMBO: " + combo, 10 + offsetX, scoreFontSize * 2 + 20);
 
   }
   requestAnimationFrame(gameLoop);
