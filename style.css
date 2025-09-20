@@ -13,6 +13,16 @@ canvas {
   background: transparent;
 }
 
+/* スマホでの長押しや拡大を抑止 */
+body, canvas {
+  -webkit-touch-callout: none; /* 長押しのメニュー無効化（iOS） */
+  -webkit-user-select: none;   /* テキスト選択禁止 */
+  -ms-user-select: none;
+  user-select: none;
+  touch-action: none;          /* ダブルタップやピンチズームを禁止 */
+}
+
+
 #retryBtn {
   display: none;
   position: absolute;
