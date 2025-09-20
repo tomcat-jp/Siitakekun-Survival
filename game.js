@@ -144,11 +144,11 @@ ctx.font = `${titleFontSize/1.5}px Arial`;
 // 白い縁取り（6px）
 ctx.lineWidth = 6;
 ctx.strokeStyle = "white";
-ctx.strokeText("タップしてスタート", canvas.width / 2, canvas.height * 0.95);
+ctx.strokeText("タップしてスタート", canvas.width / 2, canvas.height * 0.70);
 
 // 黒文字
 ctx.fillStyle = "black";
-ctx.fillText("タップしてスタート", canvas.width / 2, canvas.height * 0.95);
+ctx.fillText("タップしてスタート", canvas.width / 2, canvas.height * 0.70);
 
 }
 
