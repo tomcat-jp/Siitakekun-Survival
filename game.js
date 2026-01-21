@@ -268,7 +268,7 @@ function drawGameOver() {
   }
 
   shareBtn.onclick = () => {
-    const text = `#しいたけくんゲーム\nスコア: ${score}\nhttps://example.com/`; // ← 配布URLに変更
+    const text = `#しいたけくんゲーム\nスコア: ${score}\nhttps://tomcat-jp.github.io/Siitakekun-Survival/`; // ← 配布URLに変更
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
   };
@@ -593,7 +593,7 @@ function drawGameClear() {
   }
 
   shareBtn.onclick = () => {
-    const text = `#しいたけくんゲーム\nスコア: ${score}\nhttps://example.com/`; // ← 配布URLに変更
+    const text = `#しいたけくんゲーム\nスコア: ${score}\nhttps://tomcat-jp.github.io/Siitakekun-Survival/`; // ← 配布URLに変更
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
   };
