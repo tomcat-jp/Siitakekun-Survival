@@ -313,12 +313,20 @@ function gameLoop(timestamp) {
   } else if (gameClear) {
     drawGameClear();  
   } else {
+    /*
     // ボス出現判定
     if (!bossAppeared && score >= 5000) {
       boss = new Boss();
       bossAppeared = true;
       enemies = []; // 通常敵を消す
     }
+    */
+    if (!boss && !gameClear && score >= 5000) {
+      boss = new Boss();
+      bossAppeared = true; // ← 残してもいいが実質不要
+      enemies = [];
+    }
+
 
     // 敵出現間隔
     let interval = 3000;
@@ -342,10 +350,17 @@ function gameLoop(timestamp) {
     // 敵
     enemies.forEach(e => e.update());
     enemies.forEach(e => e.draw());
+    /*
     if (boss) {
       boss.update();
       boss.draw();
     }
+    */
+   if (boss && !gameOver && !gameClear) {
+      boss.update();
+      boss.draw();
+    }
+
     
     if (boss) {
       bullets.forEach((b, bi) => {
@@ -544,7 +559,30 @@ canvas.addEventListener("touchend", () => {
   player.moveDown = false;
   player.moving = false;
 });
+retryBtn.addEventListener("click", () => {
+  gameOver = false;
+  gameClear = false;
 
+  // ★ ボス関連は触らない
+  // boss = null;
+  // bossAppeared = false;
+  
+  score = 0;
+  combo = 0;
+  enemies = [];
+  bullets = [];
+  items = [];
+  powerLevel = 0;
+
+  lastSpawnTime = performance.now();
+
+  retryBtn.style.display = "none";
+
+  const shareBtn = document.getElementById("shareBtn");
+  if (shareBtn) shareBtn.remove();
+});
+
+/*
 // 再チャレンジ
 retryBtn.addEventListener("click", () => {
   gameOver = false;
@@ -560,6 +598,7 @@ retryBtn.addEventListener("click", () => {
   const shareBtn = document.getElementById("shareBtn");
   if (shareBtn) shareBtn.remove();
 });
+*/
 //ゲームクリア
 function drawGameClear() {
   ctx.fillStyle = "rgba(0,0,0,0.5)";
